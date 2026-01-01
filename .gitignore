@@ -1,0 +1,12 @@
+node_modules
+.env
+*.log
+pg-data/
+.postgres/
+coverage/
+tmp/
+tls/
+.merdienz-setup-token
+web/dist/
+web/node_modules
+__pycache__/

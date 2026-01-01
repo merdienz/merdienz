@@ -1,0 +1,97 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: Install PostgreSQL client for the restore drill
+        run: sudo apt-get update -y && sudo apt-get install -y postgresql-client
+      - run: npm test
+      - run: npm audit --audit-level=high
+      - run: node scripts/lint.js && node scripts/lint-sql.js && node scripts/check-public-refs.js && node scripts/check-compose.js
+      - name: Run gitleaks
+        run: |
+          set -euo pipefail
+          curl -fsSL -o /tmp/gitleaks.tar.gz https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  /tmp/gitleaks.tar.gz" | sha256sum -c
+          tar -C /tmp -xzf /tmp/gitleaks.tar.gz gitleaks
+          /tmp/gitleaks detect --source . --verbose --redact --config .gitleaks.toml
+          GITLEAKS=/tmp/gitleaks node scripts/check-gitleaks-plants.js
+
+  osv:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: google/osv-scanner-action/osv-scanner-action@32d3cd482bdadfb38b186c0ad1b031902d55d932 # v2.7.1
+        with:
+          scan-args: |-
+            --lockfile=./package-lock.json
+
+  compose:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Generate test-only secrets and certificates
+        run: |
+          set -euo pipefail
+          mkdir -p tls
+          openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 \
+            -days 1 -nodes \
+            -keyout tls/key.pem -out tls/cert.pem \
+            -subj "/CN=localhost"
+          chmod 644 tls/cert.pem tls/key.pem
+          SECRET="$(openssl rand -hex 32)"
+          {
+            echo "POSTGRES_PASSWORD=$(openssl rand -hex 24)"
+            echo "PROBE_B_SECRET=${SECRET}"
+            echo "PROBE_B_HMAC_SECRET=${SECRET}"
+            echo "COOKIE_SECRET=$(openssl rand -hex 24)"
+            echo "PROBE_B_TLS_DIR=./tls"
+          } > .env
+      - name: Compose up and wait until healthy
+        run: |
+          set -euo pipefail
+          docker compose --profile probe-b up --build --wait --wait-timeout 180
+          docker compose --profile probe-b ps
+          curl -fsS http://127.0.0.1:4840/health
+      - name: Dump compose logs and health on failure
+        if: failure()
+        run: |
+          set -euo pipefail
+          redact() {
+            sed -E \
+              -e 's/(PASSWORD|SECRET|TOKEN|HMAC|COOKIE)[=:][^[:space:]]+/\1=[Redacted]/Ig' \
+              -e 's#(postgres://[^:/]+:)[^@[:space:]]+@#\1[Redacted]@#g'
+          }
+          echo "==== compose ps ===="
+          docker compose --profile probe-b ps -a || true
+          echo "==== compose logs ===="
+          docker compose --profile probe-b logs --no-color 2>&1 | redact || true
+          for c in merdienz-postgres-1 merdienz-app-1 merdienz-probe-b-1; do
+            echo "==== health: $c ===="
+            docker inspect --format='Status={{.State.Status}} ExitCode={{.State.ExitCode}} OOMKilled={{.State.OOMKilled}} Error={{.State.Error}} Health={{json .State.Health}}' "$c" 2>&1 | redact || true
+          done
+      - name: Compose down
+        if: always()
+        run: docker compose --profile probe-b down -v --remove-orphans

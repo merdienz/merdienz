@@ -1,0 +1,42 @@
+{
+  "name": "merdienz",
+  "version": "0.1.0",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "description": "Merdienz uptime monitoring",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "node src/index.js",
+    "start": "node src/index.js",
+    "probe-b": "node src/probe-b-server.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "node scripts/lint.js && node scripts/lint-sql.js && node scripts/check-public-refs.js && node scripts/check-compose.js",
+    "create-user": "node scripts/create-user.js",
+    "migrate": "node src/migrate-cli.js",
+    "build:web": "npm run build --prefix web",
+    "dev:web": "npm run dev --prefix web",
+    "check:compose": "node scripts/check-compose.js",
+    "mail:test": "node scripts/send-test-alert.js"
+  },
+  "dependencies": {
+    "@fastify/cookie": "^11.1.5",
+    "@fastify/csrf-protection": "^8.0.2",
+    "@fastify/helmet": "^13.2.0",
+    "@fastify/rate-limit": "^11.3.0",
+    "fastify": "^5.3.3",
+    "nodemailer": "^10.6.1",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "embedded-postgres": "^17.12.0-beta.19",
+    "vitest": "^4.1.12"
+  },
+  "allowScripts": {
+    "@embedded-postgres/linux-x64@17.12.0-beta.19": true,
+    "esbuild@0.28.2": true
+  }
+}

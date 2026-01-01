@@ -1,0 +1,12 @@
+import { defineConfig } from 'vitest/config';
+
+export default defineConfig({
+  test: {
+    hookTimeout: 120000,
+    testTimeout: 30000,
+    fileParallelism: false,
+    isolate: false,
+    pool: 'forks',
+    maxWorkers: 1,
+  },
+});

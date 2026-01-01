@@ -1,0 +1,150 @@
+# Self-hosted package sized for a 1 vCPU / 1 GB VPS.
+# Start: docker compose up --build
+# Optional second probe: docker compose --profile probe-b up --build
+#   Place a certificate and key in ./tls/cert.pem and ./tls/key.pem (or set
+#   PROBE_B_TLS_DIR), and set PROBE_B_URL=https://172.28.0.10:7801 plus the
+#   matching secret and pin. probe-b binds that static address on the
+#   internal network; do not use loopback or a wildcard.
+name: merdienz
+
+networks:
+  public:
+  internal:
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.28.0.0/24
+
+services:
+  postgres:
+    # postgres:17-alpine manifest digest looked up from the Docker Hub
+    # registry on 23 Nov 2026.
+    image: postgres:17-alpine@sha256:f9cf3e1f0066f0eb0c48707d864f0ac5941e9ff454a072077d97a4d278d07d73
+    restart: unless-stopped
+    mem_limit: 256m
+    cpus: 0.35
+    read_only: true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
+      - DAC_OVERRIDE
+      - FOWNER
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      POSTGRES_USER: merdienz
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: merdienz
+    command:
+      - postgres
+      - -c
+      - shared_buffers=64MB
+      - -c
+      - max_connections=50
+      - -c
+      - work_mem=4MB
+      - -c
+      - listen_addresses=0.0.0.0
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    tmpfs:
+      - /tmp
+      - /run/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U merdienz -d merdienz"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - internal
+
+  app:
+    build: .
+    restart: unless-stopped
+    mem_limit: 384m
+    cpus: 0.45
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    user: "1000:1000"
+    # Loopback only; put a TLS reverse proxy in front. Change deliberately if the proxy is remote.
+    ports:
+      - "127.0.0.1:4840:4840"
+    tmpfs:
+      - /tmp
+    environment:
+      DATABASE_URL: postgres://merdienz:${POSTGRES_PASSWORD}@postgres:5432/merdienz
+      MERDIENZ_MODE: selfhosted
+      PORT: 4840
+      HOST: 0.0.0.0
+      MAIL_TRANSPORT: ${MAIL_TRANSPORT:-none}
+      MAIL_FROM: ${MAIL_FROM:-alerts@localhost}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      PROBE_B_SECRET: ${PROBE_B_SECRET:?set a 32-byte-or-longer PROBE_B_SECRET}
+      PROBE_B_URL: ${PROBE_B_URL:-}
+      PROBE_B_SPKI_SHA256: ${PROBE_B_SPKI_SHA256:-}
+      HEARTBEAT_URL: ${HEARTBEAT_URL:-}
+      PUBLIC_URL: ${PUBLIC_URL:-}
+      COOKIE_SECRET: ${COOKIE_SECRET:-}
+      MERDIENZ_SETUP_TOKEN_FILE: /tmp/merdienz-setup-token
+    healthcheck:
+      test: ["CMD", "node", "src/healthcheck.js", "http://127.0.0.1:4840/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 40s
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - public
+      - internal
+
+  probe-b:
+    profiles: ["probe-b"]
+    build: .
+    command: ["node", "src/probe-b-server.js"]
+    restart: unless-stopped
+    mem_limit: 192m
+    cpus: "0.20"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    user: "1000:1000"
+    tmpfs:
+      - /tmp
+    environment:
+      MERDIENZ_MODE: selfhosted
+      PROBE_B_HMAC_SECRET: ${PROBE_B_HMAC_SECRET:?set PROBE_B_HMAC_SECRET to the same value as PROBE_B_SECRET}
+      PROBE_B_PORT: "7801"
+      PORT: "7801"
+      HOST: 172.28.0.10
+      PROBE_B_TLS_CERT: /certs/cert.pem
+      PROBE_B_TLS_KEY: /certs/key.pem
+    volumes:
+      - ${PROBE_B_TLS_DIR:-./tls}:/certs:ro
+    healthcheck:
+      test: ["CMD", "node", "src/healthcheck.js", "https://172.28.0.10:7801/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 15s
+    expose:
+      - "7801"
+    networks:
+      internal:
+        ipv4_address: 172.28.0.10
+
+volumes:
+  pgdata:

@@ -1,0 +1,19 @@
+title = "Merdienz secret scanning"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Fixed example ping token used in tests"
+regexes = ['''^a1b2c3d4-e5f6-7890-abcd-ef0123456789$''']
+
+[[allowlists]]
+description = "Empty documented secret placeholders and a generic-key false positive on the following example assignment"
+regexes = [
+  '''# PROBE_B_SECRET=$''',
+  '''# PROBE_B_HMAC_SECRET=$''',
+  '''# COOKIE_SECRET=$''',
+  '''PROBE_B_SECRET=$''',
+  '''PROBE_B_SECRET=\nPROBE_B_MAX_SKEW_SEC=60''',
+  '''PROBE_B_MAX_SKEW_SEC=60''',
+]

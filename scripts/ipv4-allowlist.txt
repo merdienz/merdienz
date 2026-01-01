@@ -1,0 +1,25 @@
+# IPv4 literals permitted outside tests and fixtures.
+# Loopback and unspecified only, plus nothing else unless it is a
+# documented reserved example used as a blocklist entry.
+0.0.0.0
+127.0.0.1
+
+# Compose-internal probe-b bind address and its private subnet prefix.
+# These are not a host or a public address.
+172.28.0.10
+172.28.0.0
+
+# Reserved and non-public range bases (used by maintainer release tooling).
+10.0.0.0
+100.64.0.0
+127.0.0.0
+169.254.0.0
+172.16.0.0
+192.0.0.0
+192.0.2.0
+192.168.0.0
+198.18.0.0
+198.51.100.0
+203.0.113.0
+224.0.0.0
+240.0.0.0

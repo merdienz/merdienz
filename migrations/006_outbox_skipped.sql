@@ -1,0 +1,2 @@
+ALTER TABLE alert_outbox ADD COLUMN IF NOT EXISTS skipped_at TIMESTAMPTZ;
+ALTER TABLE alert_outbox ADD COLUMN IF NOT EXISTS skip_reason TEXT;

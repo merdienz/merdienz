@@ -1,0 +1,11 @@
+.git
+web/node_modules
+web/dist
+tests
+pg-data
+.postgres
+.env
+*.md
+!README.md
+tls
+.merdienz-setup-token
