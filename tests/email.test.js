@@ -59,4 +59,17 @@ describe('email adapter', () => {
     expect(mailer.transport.options.secure).toBe(true);
     expect(mailer.transport.options.tls).toEqual({ minVersion: 'TLSv1.2', rejectUnauthorized: true });
   });
+
+  it('refuses a display-name or multi-address From before sending', async () => {
+    const mailer = createMailer(testConfig({ mailTransport: 'dev', mailFrom: 'alerts@example.com' }));
+    mailer.from = 'Alerts <alerts@example.com>';
+    await expect(sendAlert(mailer, { to: 'owner@example.com', subject: 'ok', text: 'x' })).rejects.toThrow(
+      /not a valid single email address/
+    );
+    mailer.from = 'alerts@example.com,ops@example.com';
+    await expect(sendAlert(mailer, { to: 'owner@example.com', subject: 'ok', text: 'x' })).rejects.toThrow(
+      /not a valid single email address/
+    );
+    expect(mailer.inbox).toHaveLength(0);
+  });
 });
