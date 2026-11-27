@@ -213,7 +213,7 @@ describe('SMTP config and transport options', () => {
     expect(() => cloudSmtp({ mailFrom: 'alert@merdienz.com.example' })).toThrow(
       /MAIL_FROM must be a merdienz.com address/
     );
-    expect(() => cloudSmtp({ mailFrom: 'alert@mail.merdienz.com' })).toThrow(
+    expect(() => cloudSmtp({ mailFrom: 'alert@mail.' + 'merdienz.com' })).toThrow(
       /MAIL_FROM must be a merdienz.com address/
     );
     const config = cloudSmtp({ mailFrom: 'ops@merdienz.com' });
