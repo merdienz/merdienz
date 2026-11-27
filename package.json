@@ -32,7 +32,7 @@
     "pg": "^8.16.3"
   },
   "devDependencies": {
-    "embedded-postgres": "^17.12.0-beta.19",
+    "embedded-postgres": "^18.0.0-beta.15",
     "vitest": "^4.1.12"
   },
   "allowScripts": {
