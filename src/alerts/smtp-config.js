@@ -1,4 +1,4 @@
-import { isSingleEmailAddress } from '../email-address.js';
+import { isLegacyEmailAddress, isSingleEmailAddress } from '../email-address.js';
 import { normalizeMode } from '../probes/mode.js';
 import { DEFAULT_SMTP_PASSWORD_FILE, readSecretFile } from '../secret-file.js';
 
@@ -47,6 +47,14 @@ export function assertHeaderValue(value, label) {
 export function assertMailAddress(value, label) {
   const s = assertHeaderValue(value, label);
   if (!isSingleEmailAddress(s)) {
+    throw new Error(`${label} is not a valid single email address`);
+  }
+  return s;
+}
+
+export function assertLegacyMailAddress(value, label) {
+  const s = assertHeaderValue(value, label);
+  if (!isLegacyEmailAddress(s)) {
     throw new Error(`${label} is not a valid single email address`);
   }
   return s;

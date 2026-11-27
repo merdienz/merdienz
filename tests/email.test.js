@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { clearInbox, createMailer, sendAlert, SMTP_TIMEOUT_MS } from '../src/alerts/email.js';
+import { isSingleEmailAddress } from '../src/email-address.js';
 import { testConfig } from './helpers.js';
 
 const smtpDirs = [];
@@ -71,5 +72,15 @@ describe('email adapter', () => {
       /not a valid single email address/
     );
     expect(mailer.inbox).toHaveLength(0);
+  });
+
+  it('still sends to a saved recipient that fails the strict check but passed the previous one', async () => {
+    const mailer = createMailer(testConfig({ mailTransport: 'dev', mailFrom: 'alerts@example.com' }));
+    const saved = 'a..b@example.com';
+    expect(isSingleEmailAddress(saved)).toBe(false);
+    const record = await sendAlert(mailer, { to: saved, subject: 'ok', text: 'x' });
+    expect(record.to).toBe(saved);
+    expect(mailer.inbox).toHaveLength(1);
+    expect(mailer.inbox[0].to).toBe(saved);
   });
 });
