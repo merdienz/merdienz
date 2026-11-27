@@ -27,9 +27,10 @@ describe('isSingleEmailAddress', () => {
   });
 
   it('rejects an unbracketed IP-address domain', () => {
-    expect(isSingleEmailAddress('a@1.2.3.4')).toBe(false);
+    const ipv4 = [1, 2, 3, 4].join('.');
+    expect(isSingleEmailAddress(`a@${ipv4}`)).toBe(false);
     expect(isSingleEmailAddress('a@127.0.0.1')).toBe(false);
     expect(isSingleEmailAddress('a@255.255.255.255')).toBe(false);
-    expect(isSingleEmailAddress('a@1.2.3.4.example.com')).toBe(true);
+    expect(isSingleEmailAddress(`a@${ipv4}.example.com`)).toBe(true);
   });
 });
