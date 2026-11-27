@@ -9,7 +9,8 @@ const INPROCESS_MODES = new Set(['dev', 'test', 'selfhosted']);
 const VALID_MODES = new Set(['cloud', 'selfhosted', 'dev', 'test']);
 
 export function normalizeMode(mode) {
-  const value = String(mode || 'cloud').toLowerCase();
+  if (typeof mode !== 'string') return 'cloud';
+  const value = (mode || 'cloud').toLowerCase();
   return VALID_MODES.has(value) ? value : 'cloud';
 }
 
