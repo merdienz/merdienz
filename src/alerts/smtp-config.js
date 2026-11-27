@@ -129,7 +129,7 @@ export function applySmtpConfig(config) {
     config.smtp.pass = '';
     if (!config.mailFrom) config.mailFrom = 'alerts@localhost';
     if (transport === 'dev' || transport === 'console') {
-      config.mailFrom = assertMailAddress(config.mailFrom, 'MAIL_FROM');
+      config.mailFrom = assertMailAddress(String(config.mailFrom).trim(), 'MAIL_FROM');
     }
     return config;
   }

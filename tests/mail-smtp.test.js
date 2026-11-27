@@ -252,6 +252,18 @@ describe('SMTP config and transport options', () => {
     }
   });
 
+  it('trims MAIL_FROM before the startup check in dev and console modes', () => {
+    for (const mailTransport of ['dev', 'console']) {
+      const config = loadConfig({
+        nodeEnv: 'test',
+        merdienzMode: 'test',
+        mailTransport,
+        mailFrom: '  alerts@example.com  ',
+      });
+      expect(config.mailFrom, mailTransport).toBe('alerts@example.com');
+    }
+  });
+
   it('uses an explicit MAIL_FROM on the operator domain in self-hosted production smtp', () => {
     const config = cloudSmtp({
       nodeEnv: 'production',
