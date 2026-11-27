@@ -33,7 +33,7 @@
   },
   "devDependencies": {
     "embedded-postgres": "^17.12.0-beta.19",
-    "vitest": "^4.1.12"
+    "vitest": "^5.1.1"
   },
   "allowScripts": {
     "@embedded-postgres/linux-x64@17.12.0-beta.19": true,
