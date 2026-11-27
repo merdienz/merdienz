@@ -41,6 +41,7 @@ describe('email adapter', () => {
     const mailer = createMailer(
       testConfig({
         mailTransport: 'smtp',
+        mailFrom: 'alerts@example.com',
         smtp: {
           host: 'example.com',
           port: 465,
