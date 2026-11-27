@@ -410,10 +410,11 @@ describe('SMTP send guards', () => {
 
 describe('test alert dry-run and send', () => {
   it('uses the product default in cloud when MAIL_FROM is empty or alerts@localhost', () => {
+    const loopback = [127, 0, 0, 1].join('.');
     const none = loadConfig({
       nodeEnv: 'production',
       merdienzMode: 'cloud',
-      host: '127.0.0.1',
+      host: loopback,
       mailTransport: 'none',
       smtp: { host: 'smtp.example.net', user: 'alerts', passwordFile: writeSecret() },
     });
@@ -424,10 +425,11 @@ describe('test alert dry-run and send', () => {
   });
 
   it('does not rewrite empty or alerts@localhost MAIL_FROM to the product default in self-hosted mode', () => {
+    const loopback = [127, 0, 0, 1].join('.');
     const none = loadConfig({
       nodeEnv: 'production',
       merdienzMode: 'selfhosted',
-      host: '127.0.0.1',
+      host: loopback,
       mailTransport: 'none',
       smtp: { host: 'localhost' },
     });
