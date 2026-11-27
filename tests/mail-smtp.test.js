@@ -239,6 +239,19 @@ describe('SMTP config and transport options', () => {
     expect(cloudSmtp({ mailFrom: undefined }).mailFrom).toBe(DEFAULT_MAIL_FROM);
   });
 
+  it('validates MAIL_FROM at startup in dev and console modes', () => {
+    for (const mailTransport of ['dev', 'console']) {
+      const base = { nodeEnv: 'test', merdienzMode: 'test', mailTransport };
+      expect(() => loadConfig({ ...base, mailFrom: 'Alerts <alerts@example.com>' }), mailTransport).toThrow(
+        /MAIL_FROM is not a valid single email address/
+      );
+      expect(() => loadConfig({ ...base, mailFrom: 'alerts@example.com,ops@example.com' }), mailTransport).toThrow(
+        /MAIL_FROM is not a valid single email address/
+      );
+      expect(loadConfig({ ...base, mailFrom: 'alerts@example.com' }).mailFrom).toBe('alerts@example.com');
+    }
+  });
+
   it('uses an explicit MAIL_FROM on the operator domain in self-hosted production smtp', () => {
     const config = cloudSmtp({
       nodeEnv: 'production',
