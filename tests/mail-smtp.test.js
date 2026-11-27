@@ -213,8 +213,64 @@ describe('SMTP config and transport options', () => {
     expect(() => cloudSmtp({ mailFrom: 'alert@merdienz.com.example' })).toThrow(
       /MAIL_FROM must be a merdienz.com address/
     );
+    expect(() => cloudSmtp({ mailFrom: 'alert@mail.merdienz.com' })).toThrow(
+      /MAIL_FROM must be a merdienz.com address/
+    );
     const config = cloudSmtp({ mailFrom: 'ops@merdienz.com' });
     expect(config.mailFrom).toBe('ops@merdienz.com');
+  });
+
+  it('keeps the merdienz.com lock in cloud mode even when NODE_ENV is not production', () => {
+    expect(() => cloudSmtp({ nodeEnv: 'test', mailFrom: 'alerts@example.com' })).toThrow(
+      /MAIL_FROM must be a merdienz.com address/
+    );
+    const config = cloudSmtp({ nodeEnv: 'development', mailFrom: 'ops@merdienz.com' });
+    expect(config.mailFrom).toBe('ops@merdienz.com');
+  });
+
+  it('treats an unset, empty, or invalid merdienzMode as cloud and stays locked', () => {
+    for (const merdienzMode of [undefined, '', 'garbage', 'not-a-mode']) {
+      expect(() => cloudSmtp({ merdienzMode, mailFrom: 'alerts@example.com' }), String(merdienzMode)).toThrow(
+        /MAIL_FROM must be a merdienz.com address/
+      );
+    }
+    const config = cloudSmtp({ merdienzMode: '', mailFrom: 'ops@merdienz.com' });
+    expect(config.mailFrom).toBe('ops@merdienz.com');
+    expect(cloudSmtp({ mailFrom: undefined }).mailFrom).toBe(DEFAULT_MAIL_FROM);
+  });
+
+  it('uses an explicit MAIL_FROM on the operator domain in self-hosted production smtp', () => {
+    const config = cloudSmtp({
+      nodeEnv: 'production',
+      merdienzMode: 'selfhosted',
+      mailFrom: 'alerts@example.com',
+    });
+    expect(config.mailFrom).toBe('alerts@example.com');
+    const testMode = cloudSmtp({
+      nodeEnv: 'test',
+      merdienzMode: 'test',
+      mailFrom: 'alerts@example.com',
+    });
+    expect(testMode.mailFrom).toBe('alerts@example.com');
+  });
+
+  it('refuses a missing or empty MAIL_FROM in self-hosted smtp mode instead of defaulting', () => {
+    const required = /MAIL_FROM must be set to an address on a domain you have authorized with your SMTP provider/;
+    expect(() => cloudSmtp({ merdienzMode: 'selfhosted' })).toThrow(required);
+    expect(() => cloudSmtp({ merdienzMode: 'selfhosted', mailFrom: '' })).toThrow(required);
+    expect(() => cloudSmtp({ merdienzMode: 'selfhosted', mailFrom: '   ' })).toThrow(required);
+  });
+
+  it('still rejects an invalid, CR/LF, or multi-address MAIL_FROM in self-hosted smtp mode', () => {
+    expect(() => cloudSmtp({ merdienzMode: 'selfhosted', mailFrom: 'not-an-email' })).toThrow(
+      /MAIL_FROM is not a valid single email address/
+    );
+    expect(() => cloudSmtp({ merdienzMode: 'selfhosted', mailFrom: 'alerts@example.com\r\nBcc:evil@example.com' })).toThrow(
+      /MAIL_FROM must not contain CR or LF/
+    );
+    expect(() =>
+      cloudSmtp({ merdienzMode: 'selfhosted', mailFrom: 'alerts@example.com,ops@example.com' })
+    ).toThrow(/MAIL_FROM is not a valid single email address/);
   });
 
   it('refuses implicit TLS being turned off in production', () => {
@@ -328,6 +384,38 @@ describe('SMTP send guards', () => {
 });
 
 describe('test alert dry-run and send', () => {
+  it('uses the product default in cloud when MAIL_FROM is empty or alerts@localhost', () => {
+    const none = loadConfig({
+      nodeEnv: 'production',
+      merdienzMode: 'cloud',
+      host: '127.0.0.1',
+      mailTransport: 'none',
+      smtp: { host: 'smtp.example.net', user: 'alerts', passwordFile: writeSecret() },
+    });
+    expect(none.mailFrom).toBe('alerts@localhost');
+    expect(smtpConfigForTest(none).mailFrom).toBe(DEFAULT_MAIL_FROM);
+    const empty = { ...none, mailFrom: '' };
+    expect(smtpConfigForTest(empty).mailFrom).toBe(DEFAULT_MAIL_FROM);
+  });
+
+  it('does not rewrite empty or alerts@localhost MAIL_FROM to the product default in self-hosted mode', () => {
+    const none = loadConfig({
+      nodeEnv: 'production',
+      merdienzMode: 'selfhosted',
+      host: '127.0.0.1',
+      mailTransport: 'none',
+      smtp: { host: 'localhost' },
+    });
+    expect(none.mailFrom).toBe('alerts@localhost');
+    const kept = smtpConfigForTest(none);
+    expect(kept.mailFrom).toBe('alerts@localhost');
+    expect(kept.mailFrom).not.toBe(DEFAULT_MAIL_FROM);
+    const required = /MAIL_FROM must be set to an address on a domain you have authorized with your SMTP provider/;
+    expect(() => smtpConfigForTest({ ...none, mailFrom: '' })).toThrow(required);
+    const explicit = smtpConfigForTest({ ...none, mailFrom: 'alerts@example.com' });
+    expect(explicit.mailFrom).toBe('alerts@example.com');
+  });
+
   it('dry-run validates config without calling sendMail', () => {
     const config = smtpConfigForTest(cloudSmtp());
     let sent = 0;

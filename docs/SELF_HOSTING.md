@@ -91,6 +91,7 @@ Set `PUBLIC_URL` to that origin and restart with `docker compose up -d`. If the 
 |---|---|---|
 | `ALLOW_PRIVATE_TARGETS` | off | Set to exactly `true` to monitor loopback or private-network URLs. |
 | `MAIL_TRANSPORT` | `none` | `smtp` sends alert email; see the README for SMTP settings. |
+| `MAIL_FROM` | unset (`alerts@localhost` in Compose) | Required when `MAIL_TRANSPORT=smtp`. Set it to an address on a domain you have authorized with your SMTP provider. Compose already sets `MERDIENZ_MODE=selfhosted`. The Compose default `alerts@localhost` is valid for local smtp, but use a real domain for mail that leaves the host. SPF, DKIM, and DMARC are configured at your mail provider; the app does not sign DKIM. |
 | `DOMAIN_EXPIRY_LOOKUP` | `off` | `rdap` turns on domain registration expiry checks. |
 | `SEO_CHECKS` | `on` | `off` turns off the daily basic SEO checks. |
 | `HEARTBEAT_URL` | unset | A URL Merdienz pings after each cycle, so an outside watcher notices if it stops. |

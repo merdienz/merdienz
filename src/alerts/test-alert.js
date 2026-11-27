@@ -1,3 +1,4 @@
+import { normalizeMode } from '../probes/mode.js';
 import { createMailer } from './email.js';
 import {
   DEFAULT_MAIL_FROM,
@@ -14,10 +15,12 @@ const TEST_TEXT = 'This is a single test alert from the Merdienz Cloud mail chec
 
 /** Build a smtp-mode config snapshot without changing the process MAIL_TRANSPORT default. */
 export function smtpConfigForTest(base) {
+  const cloud = normalizeMode(base.merdienzMode) === 'cloud';
+  const placeholder = !base.mailFrom || base.mailFrom === 'alerts@localhost';
   const config = {
     ...base,
     mailTransport: 'smtp',
-    mailFrom: base.mailFrom && base.mailFrom !== 'alerts@localhost' ? base.mailFrom : DEFAULT_MAIL_FROM,
+    mailFrom: cloud && placeholder ? DEFAULT_MAIL_FROM : base.mailFrom,
     smtp: { ...(base.smtp || {}) },
   };
   applySmtpConfig(config);
