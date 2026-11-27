@@ -259,7 +259,7 @@ States: `new` (no ping yet, no alerts), `up`, `late` (inside the grace period), 
 
 - `dev` — in-memory capture (used by tests; nothing is sent)
 - `console` — log only
-- `smtp` — Nodemailer SMTP to `SMTP_HOST` (default `localhost`; there is no built-in relay) on `SMTP_PORT` (default 465) with implicit TLS (TLS 1.2+, `rejectUnauthorized: true`). When `SMTP_USER` is set, the password is read from `MERDIENZ_SMTP_PASSWORD_FILE` (default `/etc/merdienz-cloud/smtp-password`, expected `root:merdienz` mode 0640 or mode 0600/0400). The file must exist, be readable, non-empty, and not world-readable; a trailing newline is trimmed and the value is never logged. Production refuses plain-text SMTP. Set `SMTP_REQUIRED_HOST` to make production refuse any other relay. `MAIL_FROM` defaults to `alert@merdienz.com` and must be a single merdienz.com address.
+- `smtp` — Nodemailer SMTP to `SMTP_HOST` (default `localhost`; there is no built-in relay) on `SMTP_PORT` (default 465) with implicit TLS (TLS 1.2+, `rejectUnauthorized: true`). When `SMTP_USER` is set, the password is read from `MERDIENZ_SMTP_PASSWORD_FILE` (default `/etc/merdienz-cloud/smtp-password`, expected `root:merdienz` mode 0640 or mode 0600/0400). The file must exist, be readable, non-empty, and not world-readable; a trailing newline is trimmed and the value is never logged. Production refuses plain-text SMTP. Set `SMTP_REQUIRED_HOST` to make production refuse any other relay. `MAIL_FROM` must be a single email address. In cloud mode (the default, including when `MERDIENZ_MODE` is unset or invalid) it must be a merdienz.com address and defaults to `alert@merdienz.com`. In self-hosted, dev, and test modes, set `MAIL_FROM` to an address on a domain you have authorized with your SMTP provider; there is no merdienz.com default, and a missing `MAIL_FROM` is refused when SMTP is on. SPF, DKIM, and DMARC are configured at your mail provider; the app does not sign DKIM.
 - `none` — do not send; outbox rows are marked skipped. This is the Cloud default until SMTP is switched on.
 
 Production (`NODE_ENV=production`) and `MERDIENZ_MODE=cloud` refuse `dev` and `console`. Leave `MAIL_TRANSPORT` at `none` until a test alert has been sent and received, then set it to `smtp` and restart.
@@ -271,7 +271,7 @@ npm run mail:test -- --dry-run --to <addr>
 npm run mail:test -- --send --to <addr>
 ```
 
-Without `--send` the command is a dry-run and does not connect. A live send requires `--send` and `--to`, and prints only the SMTP response id.
+Without `--send` the command is a dry-run and does not connect. A live send requires `--send` and `--to`, and prints only the SMTP response id. In cloud mode the command uses `alert@merdienz.com` when `MAIL_FROM` is empty or still `alerts@localhost`. In self-hosted mode set `MAIL_FROM` first; the product default is not applied.
 
 ## Billing
 

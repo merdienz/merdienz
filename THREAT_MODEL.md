@@ -73,12 +73,15 @@ This document describes what Merdienz protects, where the trust boundaries are, 
 - Logs redact credentials, session and API tokens, ping tokens in paths, and sensitive headers.
 - The repository contains no live secrets. CI runs secret scanning and a public-reference check, and `.env`, token files, TLS material, and backups are git-ignored.
 
+## Alert email
+
+- In cloud mode, smtp `MAIL_FROM` must be a merdienz.com address. The check is keyed off `MERDIENZ_MODE` (default `cloud`), not off `NODE_ENV`. Self-hosted, dev, and test operators set `MAIL_FROM` to an address on a domain they have authorized with their SMTP provider (SPF, DKIM, and DMARC are outside the app). A self-hosted process will not default to `alert@merdienz.com`.
+
 ## Known gaps and non-goals
 
 - A full multi-tenant isolation review of hosted dashboards and status pages has not been completed.
 - Rate limits are per process. Several app instances behind one proxy do not share counters.
 - There is no second factor for login and no email verification on cloud sign-up yet.
 - Ping bodies and job output can contain secrets that the app stores as excerpts. Treat ping logs as sensitive.
-- `MAIL_FROM` must be a merdienz.com address when SMTP is on; self-hosters who send from their own domain need that check relaxed first.
 - Per-account fairness for outbound alert hooks (slow or hanging destinations) is a design requirement for any non-email channel and must be re-checked when such channels ship.
 - Physical access to a self-hosted host, compromise of the operator's reverse proxy or TLS keys, and availability of third-party mail or payment providers are out of scope.

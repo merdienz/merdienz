@@ -1,4 +1,5 @@
-import { isSingleEmailAddress } from '../email-address.js';
+import { isLegacyEmailAddress, isSingleEmailAddress } from '../email-address.js';
+import { normalizeMode } from '../probes/mode.js';
 import { DEFAULT_SMTP_PASSWORD_FILE, readSecretFile } from '../secret-file.js';
 
 // No relay is built in. Operators set SMTP_HOST (and SMTP_USER when the relay needs auth).
@@ -51,11 +52,26 @@ export function assertMailAddress(value, label) {
   return s;
 }
 
-export function assertSmtpFrom(value) {
+export function assertLegacyMailAddress(value, label) {
+  const s = assertHeaderValue(value, label);
+  if (!isLegacyEmailAddress(s)) {
+    throw new Error(`${label} is not a valid single email address`);
+  }
+  return s;
+}
+
+function isBlankMailFrom(value) {
+  return !String(value ?? '').trim();
+}
+
+export function assertSmtpFrom(value, configOrMode) {
   const from = assertMailAddress(value, 'MAIL_FROM');
-  const domain = from.slice(from.lastIndexOf('@') + 1).toLowerCase();
-  if (domain !== 'merdienz.com') {
-    throw new Error('MAIL_FROM must be a merdienz.com address');
+  const rawMode = configOrMode && typeof configOrMode === 'object' ? configOrMode.merdienzMode : configOrMode;
+  if (normalizeMode(rawMode) === 'cloud') {
+    const domain = from.slice(from.lastIndexOf('@') + 1).toLowerCase();
+    if (domain !== 'merdienz.com') {
+      throw new Error('MAIL_FROM must be a merdienz.com address');
+    }
   }
   return from;
 }
@@ -102,12 +118,19 @@ export function readSmtpPassword(config) {
 /**
  * Apply SMTP defaults. When MAIL_TRANSPORT is smtp, require a valid From and, when SMTP_USER is set,
  * a usable password file. SMTP_REQUIRED_HOST lets an operator pin the relay in production.
+ * Cloud mode locks MAIL_FROM to merdienz.com and defaults to alert@merdienz.com. Other modes
+ * require an explicit MAIL_FROM and do not apply that default. Dev and console modes also
+ * validate MAIL_FROM at startup with the same single-address checks.
  */
 export function applySmtpConfig(config) {
   config.smtp = smtpDefaults(config.smtp || {});
-  if (String(config.mailTransport || '').toLowerCase() !== 'smtp') {
+  const transport = String(config.mailTransport || '').toLowerCase();
+  if (transport !== 'smtp') {
     config.smtp.pass = '';
     if (!config.mailFrom) config.mailFrom = 'alerts@localhost';
+    if (transport === 'dev' || transport === 'console') {
+      config.mailFrom = assertMailAddress(String(config.mailFrom).trim(), 'MAIL_FROM');
+    }
     return config;
   }
   if (isProductionMail(config) && !config.smtp.secure) {
@@ -120,10 +143,16 @@ export function applySmtpConfig(config) {
   if (isProductionMail(config) && config.smtp.requiredHost && host !== config.smtp.requiredHost) {
     throw new Error(`SMTP_HOST must be ${config.smtp.requiredHost} in production (SMTP_REQUIRED_HOST)`);
   }
-  if (!config.mailFrom) {
-    config.mailFrom = DEFAULT_MAIL_FROM;
+  if (isBlankMailFrom(config.mailFrom)) {
+    if (normalizeMode(config.merdienzMode) === 'cloud') {
+      config.mailFrom = DEFAULT_MAIL_FROM;
+    } else {
+      throw new Error(
+        'MAIL_FROM must be set to an address on a domain you have authorized with your SMTP provider'
+      );
+    }
   }
-  config.mailFrom = assertSmtpFrom(config.mailFrom);
+  config.mailFrom = assertSmtpFrom(config.mailFrom, config);
   config.smtp.pass = config.smtp.user ? readSmtpPassword(config) : '';
   return config;
 }

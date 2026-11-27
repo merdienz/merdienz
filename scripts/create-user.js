@@ -4,6 +4,7 @@ import { createPool, migrate } from '../src/db.js';
 import { defaultUserTier } from '../src/guard.js';
 import { apiKeyPrefix, hashSecret } from '../src/keys.js';
 import { hashPassword } from '../src/password.js';
+import { isSingleEmailAddress } from '../src/email-address.js';
 
 function arg(name, fallback) {
   const idx = process.argv.indexOf(`--${name}`);
@@ -11,13 +12,17 @@ function arg(name, fallback) {
   return fallback;
 }
 
-const email = arg('email');
+const email = String(arg('email') || '').trim().toLowerCase();
 const password = arg('password');
 const configEarly = { merdienzMode: process.env.MERDIENZ_MODE || 'cloud' };
 const tier = arg('tier', defaultUserTier(configEarly.merdienzMode));
 
 if (!email || !password) {
   console.error('Usage: node scripts/create-user.js --email you@example.com --password secret [--tier selfhosted]');
+  process.exit(1);
+}
+if (!isSingleEmailAddress(email)) {
+  console.error('email is not a valid single email address');
   process.exit(1);
 }
 

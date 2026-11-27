@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { clearInbox, createMailer, sendAlert, SMTP_TIMEOUT_MS } from '../src/alerts/email.js';
+import { isSingleEmailAddress } from '../src/email-address.js';
 import { testConfig } from './helpers.js';
 
 const smtpDirs = [];
@@ -41,6 +42,7 @@ describe('email adapter', () => {
     const mailer = createMailer(
       testConfig({
         mailTransport: 'smtp',
+        mailFrom: 'alerts@example.com',
         smtp: {
           host: 'example.com',
           port: 465,
@@ -57,5 +59,28 @@ describe('email adapter', () => {
     expect(mailer.transport.options.socketTimeout).toBe(SMTP_TIMEOUT_MS);
     expect(mailer.transport.options.secure).toBe(true);
     expect(mailer.transport.options.tls).toEqual({ minVersion: 'TLSv1.2', rejectUnauthorized: true });
+  });
+
+  it('refuses a display-name or multi-address From before sending', async () => {
+    const mailer = createMailer(testConfig({ mailTransport: 'dev', mailFrom: 'alerts@example.com' }));
+    mailer.from = 'Alerts <alerts@example.com>';
+    await expect(sendAlert(mailer, { to: 'owner@example.com', subject: 'ok', text: 'x' })).rejects.toThrow(
+      /not a valid single email address/
+    );
+    mailer.from = 'alerts@example.com,ops@example.com';
+    await expect(sendAlert(mailer, { to: 'owner@example.com', subject: 'ok', text: 'x' })).rejects.toThrow(
+      /not a valid single email address/
+    );
+    expect(mailer.inbox).toHaveLength(0);
+  });
+
+  it('still sends to a saved recipient that fails the strict check but passed the previous one', async () => {
+    const mailer = createMailer(testConfig({ mailTransport: 'dev', mailFrom: 'alerts@example.com' }));
+    const saved = 'a..b@example.com';
+    expect(isSingleEmailAddress(saved)).toBe(false);
+    const record = await sendAlert(mailer, { to: saved, subject: 'ok', text: 'x' });
+    expect(record.to).toBe(saved);
+    expect(mailer.inbox).toHaveLength(1);
+    expect(mailer.inbox[0].to).toBe(saved);
   });
 });

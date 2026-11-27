@@ -1,6 +1,6 @@
 import nodemailer from 'nodemailer';
 import {
-  assertHeaderValue,
+  assertLegacyMailAddress,
   assertMailAddress,
   redactSecret,
   smtpTransportOptions,
@@ -42,9 +42,9 @@ export function createMailer(config, { createTransport } = {}) {
 }
 
 export async function sendAlert(mailer, { to, subject, text }) {
-  const safeTo = assertMailAddress(to, 'recipient');
+  const safeTo = assertLegacyMailAddress(to, 'recipient');
   const safeSubject = sanitizeSubject(subject);
-  const safeFrom = assertHeaderValue(mailer.from, 'from');
+  const safeFrom = assertMailAddress(mailer.from, 'from');
   let info;
   try {
     info = await mailer.transport.sendMail({
